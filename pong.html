@@ -1,0 +1,257 @@
+﻿<html>
+
+<canvas id="gameCanvas" width="800"
+height="600"></canvas>
+
+<script>
+var canvas;
+var canvasContext;
+var ballX = 50;
+var ballY = 50;
+var ballSpeedX = 10;
+var ballSpeedY = 4;
+
+var beamX = 0;
+var beamY = 0;
+var beamSpeedX = 30;
+var beamLength = 20;
+var beamHeight = 50;
+
+var player1Score = 0;
+var player2Score = 0;
+const WINNING_SCORE = 3;
+
+var showingWinScreen = false;
+var chargeShotUsed = false;
+
+var paddle1Y = 250;
+var paddle2Y = 250;
+
+var chargeMeterHeight = 95;
+var leftPaddleColor = 'white';
+var chargeMeterColor = 'blue';
+
+//constants set up in all caps
+const PADDLE_HEIGHT = 100;
+const PADDLE_THICKNESS = 10;
+
+
+//lmao I have no idea how this shit works, but it reads mouse input
+function calculateMousePos(evt) {
+	var rect = canvas.getBoundingClientRect();
+	var root = document.documentElement;
+	var mouseX = evt.clientX - rect.left - root.scrollLeft;
+	var mouseY = evt.clientY - rect.top - root.scrollTop;
+	return {
+		x:mouseX,
+		y:mouseY
+	};
+}
+
+function handleMouseClick(evt) {
+	if(showingWinScreen) {
+		player1Score = 0;
+		player2Score = 0;
+		chargeMeterHeight = 95;
+		chargeMeterColor = 'blue';
+		showingWinScreen = false;
+	}
+}
+
+
+
+//makes sure that the code is called when the page is loaded
+window.onload = function() {
+	canvas = document.getElementById('gameCanvas');
+	canvasContext = canvas.getContext('2d');
+
+	var framesPerSecond = 30;
+	setInterval(function() {
+		moveEverything();
+		drawEverything();
+		chargeShot();
+	}, 1000/framesPerSecond);
+
+
+	canvas.addEventListener('mousedown',handleMouseClick);
+
+	canvas.addEventListener('mousemove',
+		function(evt) {
+			var mousePos = calculateMousePos(evt);
+			paddle1Y = mousePos.y-(PADDLE_HEIGHT/2);
+		});	
+}
+function ballReset() {
+	if(player1Score >= WINNING_SCORE ||
+	   player2Score >= WINNING_SCORE) {
+		showingWinScreen = true;
+	}
+	
+	ballSpeedY = 4;
+	ballSpeedX = 10;
+	ballSpeedX = -ballSpeedX;
+	ballX = canvas.width/2;
+	ballY = canvas.height/2;
+
+}
+
+function computerMovement() {
+	var paddle2YCenter = paddle2Y + (PADDLE_HEIGHT/2);
+	if(paddle2YCenter < ballY-35) {
+		paddle2Y += 6;
+	} else if (paddle2YCenter > ballY+35) {
+		paddle2Y -= 6;
+	}
+}
+
+const sleep = (time) => {
+  return new Promise((resolve) => setTimeout(resolve, time));
+}
+
+function chargeShot (){
+	if(ballX <= 10) {
+		if(ballY > paddle1Y &&
+		   ballY < paddle1Y+PADDLE_HEIGHT&&
+		   chargeMeterHeight > 0 &&
+		   chargeMeterColor != 'red') {
+			chargeMeterHeight = chargeMeterHeight - 19; //19 because the height of the meter (95) is divisible by 19
+		}
+	}
+	if(chargeMeterHeight == 0){
+		chargeMeterHeight = 95;
+		chargeMeterColor = 'red';
+		}
+	if(chargeMeterColor == 'red'){
+		canvasContext.fillText("CHARGE SHOT READY\n PRESS SPACE TO FIRE!", 100, 300);
+	}
+	
+	document.body.onkeyup = function(e){
+    		if(e.keyCode == 32 && chargeMeterColor == 'red'){
+		chargeMeterColor = 'blue';
+		const doSomething = async () => {
+			for(var i = 0; i < canvas.width; i+=40) {
+				await sleep(10);
+				colorRect(i,paddle1Y+25,20,50,'blue'); 
+				if ((i+20 > ballX-10)
+				 &&(ballY > paddle1Y + 25 && ballY < paddle1Y + 75)){
+					chargeMeterHeight = 95;
+					ballSpeedX = 50;
+					break;
+						}
+						}
+						}
+				doSomething();
+				}
+	}
+
+}
+//set up ball collision with the walls and paddles, and AI
+function moveEverything() {
+	if(showingWinScreen) {
+		return;
+	}
+
+	chargeShot();
+
+	computerMovement();
+
+	ballX += ballSpeedX;
+	ballY += ballSpeedY;
+
+	if(ballX <= 10) {
+		if(ballY > paddle1Y &&
+		   ballY < paddle1Y+PADDLE_HEIGHT) {
+			ballSpeedX = -ballSpeedX;
+
+			var deltaY = ballY-(paddle1Y+PADDLE_HEIGHT/2);
+			ballSpeedY = deltaY * 0.35;
+		} else {
+			player2Score++; //MUST BE BEFORE BALLRESET()
+			ballReset();
+			
+		}
+}
+	if(ballX > canvas.width - 10) {
+		if(ballY > paddle2Y &&
+		   ballY < paddle2Y+PADDLE_HEIGHT) {
+			ballSpeedX = -ballSpeedX;
+
+			var deltaY = ballY-(paddle2Y+PADDLE_HEIGHT/2);
+			ballSpeedY = deltaY * 0.35;
+		} else {
+			player1Score++; //MUST BE BEFORE BALLRESET()
+			ballReset();
+		}
+		//ballSpeedX = -ballSpeedX;
+	}
+	if(ballY < 0) {
+		ballSpeedY = -ballSpeedY;
+	}
+	if(ballY > canvas.height) {
+		ballSpeedY = -ballSpeedY;
+	}
+}
+//makes the net in the middle of screen
+function drawNet() {
+	for(var i = 0; i < canvas.height; i+=40) {
+		colorRect(canvas.width/2-1,i,2,20,'white');
+	}
+}
+
+function drawEverything() {
+	//create black background
+	canvas.style = "position:absolute; left: 50%; width: 800px; margin-left: -400px;";
+	colorRect(0,0,canvas.width,canvas.height,'black');
+
+	if(showingWinScreen) {
+		canvasContext.fillStyle = 'white';
+
+	if(player1Score >= WINNING_SCORE) {
+		canvasContext.fillText("Left Player Won!",canvas.width/2,canvas.height/2);
+	} else if (player2Score >= WINNING_SCORE) {
+		canvasContext.fillText("Right Player Won!",canvas.width/2,canvas.height/2);
+	}
+
+
+
+		canvasContext.fillText("Click to Continue", canvas.width/2,100);
+		return;
+	}
+
+	drawNet();
+
+	//left player paddle
+	colorRect(0,paddle1Y,PADDLE_THICKNESS,PADDLE_HEIGHT,leftPaddleColor);
+	colorRect(2,paddle1Y+2.5,PADDLE_THICKNESS*0.6,chargeMeterHeight,chargeMeterColor);
+
+	//right player paddle
+	colorRect(canvas.width -PADDLE_THICKNESS,paddle2Y,PADDLE_THICKNESS,
+		PADDLE_HEIGHT,'white');
+
+
+	//creates the ball
+	colorCircle(ballX, ballY, 10, 'white');
+
+
+	canvasContext.fillText(player1Score, 100,100);
+	canvasContext.fillText(player2Score, canvas.width-100,canvas.height- 500);
+	//temporary debug tool
+	canvasContext.fillText(chargeMeterHeight, 100, 200);
+}
+//function to make circle creation easier
+function colorCircle(centerX, centerY, radius, drawColor) {
+	canvasContext.fillStyle = drawColor;
+	canvasContext.beginPath();
+	canvasContext.arc(centerX, centerY, radius, 0, Math.PI*2, true);
+	canvasContext.fill();
+}
+//function to make rectangle creation easier
+function colorRect (leftX,topY, width,height, drawColor) {
+	canvasContext.fillStyle = drawColor;
+	canvasContext.fillRect(leftX,topY, width,height);
+}
+
+
+</script>
+
+</html>
